@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background:         0 0% 100%;
+    --foreground:         222 47% 11%;
+    --card:               0 0% 100%;
+    --card-foreground:    222 47% 11%;
+    --border:             214 32% 91%;
+    --input:              214 32% 91%;
+    --ring:               221 83% 53%;
+    --primary:            221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary:          210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted:              210 40% 96%;
+    --muted-foreground:   215 16% 47%;
+    --accent:             210 40% 96%;
+    --accent-foreground:  222 47% 11%;
+    --destructive:        0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --radius:             0.5rem;
+  }
+
+  .dark {
+    --background:         222 47% 7%;
+    --foreground:         210 40% 98%;
+    --card:               222 47% 10%;
+    --card-foreground:    210 40% 98%;
+    --border:             217 33% 18%;
+    --input:              217 33% 18%;
+    --ring:               224 76% 62%;
+    --primary:            224 76% 62%;
+    --primary-foreground: 222 47% 7%;
+    --secondary:          217 33% 18%;
+    --secondary-foreground: 210 40% 98%;
+    --muted:              217 33% 18%;
+    --muted-foreground:   215 20% 65%;
+    --accent:             217 33% 18%;
+    --accent-foreground:  210 40% 98%;
+    --destructive:        0 63% 55%;
+    --destructive-foreground: 210 40% 98%;
+  }
+
+  * { @apply border-border; }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+}
+
+@layer components {
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-blue    { @apply bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300; }
+  .badge-green   { @apply bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300; }
+  .badge-yellow  { @apply bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300; }
+  .badge-red     { @apply bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300; }
+  .badge-purple  { @apply bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300; }
+  .badge-gray    { @apply bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300; }
+
+  .status-pending     { @apply badge badge-yellow; }
+  .status-active      { @apply badge badge-green; }
+  .status-reviewed    { @apply badge badge-blue; }
+  .status-shortlisted { @apply badge badge-purple; }
+  .status-rejected    { @apply badge badge-red; }
+  .status-hired       { @apply badge badge-green; }
+  .status-closed      { @apply badge badge-gray; }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
+  }
+
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .section { @apply py-12; }
+
+  .form-group { @apply space-y-1.5; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { @apply bg-transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+}
