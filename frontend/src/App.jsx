@@ -18,6 +18,8 @@ import JobDetail from '@/pages/Jobdetailpage'
 
 // Phase 2 — Seeker
 import SeekerDashboard    from '@/pages/seeker/DashboardPage'
+import NotificationsPage  from '@/pages/NotificationsPage'
+import SeekerProfile      from '@/pages/seeker/ProfilePage'
 import SeekerApplications from '@/pages/seeker/ApplicationsPage'
 import SavedJobsPage      from '@/pages/seeker/SavedJobsPage'
 
@@ -52,10 +54,10 @@ export default function App() {
         <Route path="/jobs/:id" element={<JobDetail />} />
 
         <Route path="/notifications" element={
-          <ProtectedRoute><Soon label="Notifications" /></ProtectedRoute>
+          <ProtectedRoute><NotificationsPage /></ProtectedRoute>
         } />
         <Route path="/profile" element={
-          <ProtectedRoute><Soon label="Profile" /></ProtectedRoute>
+          <ProtectedRoute roles={['seeker']}><SeekerProfile /></ProtectedRoute>
         } />
         <Route path="/settings" element={
           <ProtectedRoute><Soon label="Settings" /></ProtectedRoute>
