@@ -19,6 +19,7 @@ import JobDetail from '@/pages/Jobdetailpage'
 // Phase 2 — Seeker
 import SeekerDashboard    from '@/pages/seeker/DashboardPage'
 import NotificationsPage  from '@/pages/NotificationsPage'
+import SettingsPage       from '@/pages/SettingsPage'
 import SeekerProfile      from '@/pages/seeker/ProfilePage'
 import SeekerApplications from '@/pages/seeker/ApplicationsPage'
 import SavedJobsPage      from '@/pages/seeker/SavedJobsPage'
@@ -60,7 +61,7 @@ export default function App() {
           <ProtectedRoute roles={['seeker']}><SeekerProfile /></ProtectedRoute>
         } />
         <Route path="/settings" element={
-          <ProtectedRoute><Soon label="Settings" /></ProtectedRoute>
+          <ProtectedRoute><SettingsPage /></ProtectedRoute>
         } />
 
         {/* Seeker — Phase 2 */}
