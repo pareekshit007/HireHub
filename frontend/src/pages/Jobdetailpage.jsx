@@ -12,6 +12,13 @@ import { useAuth } from '@/context/AuthContext'
 import { jobAPI, savedJobAPI, applicationAPI } from '@/api/services'
 import { cn, formatSalary, formatDate, timeAgo, JOB_TYPE_COLORS } from '@/lib/utils'
 
+// Normalise a field that may be a string or array into an array of non-empty lines
+const toLines = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val.filter(Boolean)
+  return val.split('\n').map((s) => s.trim()).filter(Boolean)
+}
+
 export default function JobDetailPage() {
   const { id }        = useParams()
   const navigate      = useNavigate()
@@ -33,13 +40,11 @@ export default function JobDetailPage() {
         setJob(data.job)
 
         if (isAuthenticated) {
-          // Check if saved
           try {
             const s = await savedJobAPI.check(id)
             setSaved(s.data.isSaved)
           } catch {}
 
-          // Check if already applied
           if (user?.role === 'seeker') {
             try {
               const apps = await applicationAPI.getMyApplications({ jobId: id })
@@ -95,25 +100,25 @@ export default function JobDetailPage() {
     toast({ type: 'success', message: 'Link copied to clipboard!' })
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-[50vh]">
+      <Spinner size="lg" />
+    </div>
+  )
 
   if (!job) return null
 
-  const isExpired   = job.deadline && new Date(job.deadline) < new Date()
-  const isClosed    = job.status === 'closed'
-  const canApply    = isAuthenticated && user?.role === 'seeker' && !applied && !isExpired && !isClosed
-  const employer    = job.employer?.employerProfile
+  const isExpired  = job.deadline && new Date(job.deadline) < new Date()
+  const isClosed   = job.status === 'closed'
+  const canApply   = isAuthenticated && user?.role === 'seeker' && !applied && !isExpired && !isClosed
+  const employer   = job.employer?.employerProfile
+
+  const requirements     = toLines(job.requirements)
+  const responsibilities = toLines(job.responsibilities)
 
   return (
     <div className="page-container py-8">
 
-      {/* Back button */}
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -123,13 +128,13 @@ export default function JobDetailPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* ── Main content ─────────────────────────────────── */}
+        {/* ── Main ─────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Job header */}
+          {/* Header */}
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start gap-4">
-              <div className="h-16 w-16 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-2xl font-bold text-primary">
+              <div className="h-16 w-16 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-2xl font-bold text-primary overflow-hidden">
                 {employer?.logoUrl
                   ? <img src={employer.logoUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
                   : (employer?.companyName?.[0] || <Building2 className="h-7 w-7" />)
@@ -145,7 +150,7 @@ export default function JobDetailPage() {
 
                 <div className="flex flex-wrap gap-2 mt-3">
                   <span className={cn('badge', JOB_TYPE_COLORS[job.jobType] || 'badge-gray')}>{job.jobType}</span>
-                  {job.workMode && <span className="badge badge-blue">{job.workMode}</span>}
+                  {job.workMode       && <span className="badge badge-blue">{job.workMode}</span>}
                   {job.experienceLevel && <span className="badge badge-purple">{job.experienceLevel} level</span>}
                   {isClosed  && <span className="badge badge-red">Closed</span>}
                   {isExpired && !isClosed && <span className="badge badge-red">Expired</span>}
@@ -156,10 +161,10 @@ export default function JobDetailPage() {
             {/* Quick info */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border">
               {[
-                { icon: MapPin,     label: 'Location',   value: job.location || 'Not specified' },
-                { icon: DollarSign, label: 'Salary',     value: formatSalary(job.salary) },
-                { icon: Users,      label: 'Openings',   value: `${job.openings || 1} position${(job.openings || 1) > 1 ? 's' : ''}` },
-                { icon: Calendar,   label: 'Deadline',   value: job.deadline ? formatDate(job.deadline) : 'Open' },
+                { icon: MapPin,     label: 'Location', value: job.location || 'Not specified' },
+                { icon: DollarSign, label: 'Salary',   value: formatSalary(job.salary) },
+                { icon: Users,      label: 'Openings', value: `${job.openings || 1} position${(job.openings || 1) > 1 ? 's' : ''}` },
+                { icon: Calendar,   label: 'Deadline', value: job.deadline ? formatDate(job.deadline) : 'Open' },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="text-center">
                   <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-muted mb-2">
@@ -171,7 +176,7 @@ export default function JobDetailPage() {
               ))}
             </div>
 
-            {/* Action buttons */}
+            {/* Actions */}
             <div className="flex gap-3 mt-6">
               {applied ? (
                 <Button className="flex-1" disabled>
@@ -187,7 +192,8 @@ export default function JobDetailPage() {
                 </Button>
               ) : (isClosed || isExpired) ? (
                 <Button className="flex-1" disabled>
-                  <AlertCircle className="h-4 w-4" /> {isClosed ? 'Position Closed' : 'Application Deadline Passed'}
+                  <AlertCircle className="h-4 w-4" />
+                  {isClosed ? 'Position Closed' : 'Application Deadline Passed'}
                 </Button>
               ) : null}
 
@@ -203,17 +209,30 @@ export default function JobDetailPage() {
           {/* Description */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">Job Description</h2>
-            <div className="prose prose-sm max-w-none text-foreground dark:prose-invert">
-              <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{job.description}</p>
-            </div>
+            <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed text-sm">{job.description}</p>
           </div>
 
           {/* Requirements */}
-          {job.requirements?.length > 0 && (
+          {requirements.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">Requirements</h2>
               <ul className="space-y-2">
-                {job.requirements.map((r, i) => (
+                {requirements.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Responsibilities */}
+          {responsibilities.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-foreground mb-4">Responsibilities</h2>
+              <ul className="space-y-2">
+                {responsibilities.map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                     {r}
@@ -304,7 +323,7 @@ export default function JobDetailPage() {
             </div>
           </div>
 
-          {/* Apply CTA box */}
+          {/* Apply CTA */}
           {!applied && canApply && (
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 text-center">
               <p className="text-sm text-foreground font-medium mb-3">Interested in this role?</p>

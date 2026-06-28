@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 import Layout from '@/components/layout/Layout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
@@ -29,6 +30,7 @@ import EmployerDashboardPage    from '@/pages/employer/EmployerDashboardPage'
 import MyJobsPage               from '@/pages/employer/MyJobsPage'
 import PostJobPage              from '@/pages/employer/PostJobPage'
 import EmployerApplicationsPage from '@/pages/employer/EmployerApplicationsPage'
+import EmployerProfilePage      from '@/pages/employer/EmployerProfilePage'
 
 // Phase 4 — Admin
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
@@ -45,6 +47,12 @@ const Soon = ({ label }) => (
   </div>
 )
 
+function ProfileRouter() {
+  const { user } = useAuth()
+  if (user?.role === 'employer') return <EmployerProfilePage />
+  return <SeekerProfile />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -58,7 +66,7 @@ export default function App() {
           <ProtectedRoute><NotificationsPage /></ProtectedRoute>
         } />
         <Route path="/profile" element={
-          <ProtectedRoute roles={['seeker']}><SeekerProfile /></ProtectedRoute>
+          <ProtectedRoute><ProfileRouter /></ProtectedRoute>
         } />
         <Route path="/settings" element={
           <ProtectedRoute><SettingsPage /></ProtectedRoute>
@@ -90,6 +98,9 @@ export default function App() {
         } />
         <Route path="/employer/applications" element={
           <ProtectedRoute roles={['employer']}><EmployerApplicationsPage /></ProtectedRoute>
+        } />
+        <Route path="/employer/profile" element={
+          <ProtectedRoute roles={['employer']}><EmployerProfilePage /></ProtectedRoute>
         } />
 
         {/* Admin — Phase 4 */}
