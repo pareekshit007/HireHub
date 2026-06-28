@@ -1,6 +1,6 @@
 const Job          = require('../models/Job');
 const Application  = require('../models/Application');
-const { Notification } = require('../models/SavedJob');
+const Notification = require('../models/Notification');
 const { sendJobStatusEmail } = require('../utils/emailUtils');
 const {
   sendSuccess, sendError, asyncHandler,
@@ -99,7 +99,7 @@ exports.getJobById = asyncHandler(async (req, res) => {
   let hasSaved   = false;
 
   if (req.user?.role === 'seeker') {
-    const { SavedJob } = require('../models/SavedJob');
+    const SavedJob = require('../models/SavedJob');
     const [app, saved] = await Promise.all([
       Application.findOne({ job: job._id, applicant: req.user._id }),
       SavedJob.findOne({ job: job._id, user: req.user._id }),
@@ -123,9 +123,24 @@ exports.updateJob = asyncHandler(async (req, res) => {
     'location', 'salary', 'skills', 'deadline', 'openings',
   ];
   allowedFields.forEach((field) => { if (req.body[field] !== undefined) job[field] = req.body[field]; });
-  if (['title', 'description', 'requirements'].some((f) => req.body[f])) job.status = 'pending';
+
+  const triggerReview = ['title', 'description', 'requirements'].some((f) => req.body[f]);
+  const wasActive     = job.status === 'active';
+  if (triggerReview) job.status = 'pending';
 
   await job.save();
+
+  if (triggerReview && wasActive) {
+    await Notification.create({
+      recipient: req.user._id,
+      type:      'general',
+      title:     'Job sent back for review',
+      message:   `Your edits to "${job.title}" require admin approval. The listing is temporarily offline until approved.`,
+      link:      '/employer/jobs',
+      relatedJob: job._id,
+    });
+  }
+
   return sendSuccess(res, { job }, 'Job updated');
 });
 

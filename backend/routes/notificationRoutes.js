@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 
 const { protect }  = require('../middleware/authMiddleware');
-const { Notification } = require('../models/SavedJob');
+const Notification = require('../models/Notification');
 const { sendSuccess, sendError, asyncHandler, getPagination, paginationMeta } = require('../utils/apiHelpers');
 
 // GET /api/notifications — paginated list for logged-in user

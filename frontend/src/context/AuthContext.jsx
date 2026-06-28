@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { authAPI } from '@/api/services'
+import { setAccessToken, clearAccessToken } from '@/api/axios'
 
 const AuthContext = createContext(null)
 
@@ -8,29 +9,35 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) { setLoading(false); return }
-
-    authAPI.getMe()
+    // On mount, try to get a new access token using the httpOnly refresh cookie.
+    // If the cookie is missing or expired, this will 401 and we stay logged out.
+    authAPI.refresh()
+      .then(({ data }) => {
+        setAccessToken(data.accessToken)
+        return authAPI.getMe()
+      })
       .then(({ data }) => setUser(data.user))
-      .catch(() => localStorage.removeItem('accessToken'))
+      .catch(() => {
+        clearAccessToken()
+        setUser(null)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   const login = useCallback((accessToken, userData) => {
-    localStorage.setItem('accessToken', accessToken)
+    setAccessToken(accessToken)
     setUser(userData)
   }, [])
 
   const logout = useCallback(async () => {
     try { await authAPI.logout() } catch (_) {}
-    localStorage.removeItem('accessToken')
+    clearAccessToken()
     setUser(null)
   }, [])
 
   const updateUser = useCallback((updates) => {
     setUser((prev) => prev ? { ...prev, ...updates } : prev)
-  }, [])
+  }, []  )
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, updateUser, isAuthenticated: !!user }}>

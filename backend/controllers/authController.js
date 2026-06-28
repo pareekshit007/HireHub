@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const { Notification } = require('../models/SavedJob');
+const Notification = require('../models/Notification');
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -9,15 +9,21 @@ const {
 } = require('../utils/tokenUtils');
 const { sendSuccess, sendError, asyncHandler } = require('../utils/apiHelpers');
 
+const MAX_SESSIONS = 5;
+
 // ── Helper: issue tokens ──────────────────────────────────────────────────────
 const sendTokenResponse = async (res, user, statusCode = 200, message = 'Success') => {
   const accessToken  = generateAccessToken(user._id, user.role);
   const refreshToken = generateRefreshToken(user._id);
 
-  await User.findByIdAndUpdate(user._id, {
-    $push:     { refreshTokens: refreshToken },
-    lastLogin: new Date(),
-  });
+  await User.findByIdAndUpdate(user._id, [
+    { $set: {
+      refreshTokens: {
+        $slice: [{ $concatArrays: ['$refreshTokens', [refreshToken]] }, -MAX_SESSIONS]
+      },
+      lastLogin: new Date(),
+    }},
+  ]);
 
   setRefreshCookie(res, refreshToken);
 
@@ -35,29 +41,26 @@ const sendTokenResponse = async (res, user, statusCode = 200, message = 'Success
 };
 
 // ── POST /api/auth/register ───────────────────────────────────────────────────
-// OTP removed: user is auto-verified and logged in immediately on register
 exports.register = asyncHandler(async (req, res) => {
   const { name, password, role } = req.body;
-  const email = req.body.email.toLowerCase().trim();
+  const email = req.body.email?.toLowerCase().trim();
+
+  if (!name || !email || !password) return sendError(res, 'Name, email and password are required', 400);
 
   const exists = await User.findOne({ email });
-  if (exists) {
-    return sendError(res, 'Email already registered. Please login.', 409);
-  }
+  if (exists) return sendError(res, 'Email already registered. Please login.', 409);
 
   const allowedRoles = ['seeker', 'employer'];
   const userRole     = allowedRoles.includes(role) ? role : 'seeker';
 
-  const user = new User({
+  const user = await User.create({
     name,
     email,
     password,
-    role:       userRole,
+    role:         userRole,
     authProvider: 'local',
-    isVerified: true, // ← skip OTP, auto-verify
+    isVerified:   true,   // no OTP — auto-verify
   });
-
-  await user.save();
 
   await Notification.create({
     recipient: user._id,
@@ -72,19 +75,19 @@ exports.register = asyncHandler(async (req, res) => {
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 exports.login = asyncHandler(async (req, res) => {
-  const email = req.body.email.toLowerCase().trim();
+  const email = req.body.email?.toLowerCase().trim();
   const { password } = req.body;
+
+  if (!email || !password) return sendError(res, 'Email and password are required', 400);
 
   const user = await User.findOne({ email }).select('+password');
   if (!user) return sendError(res, 'Invalid email or password', 401);
 
-  if (user.authProvider === 'google') {
+  if (user.authProvider === 'google')
     return sendError(res, 'This account uses Google Sign-In. Please use Google to login.', 400);
-  }
 
-  if (!user.isActive || user.isBanned) {
+  if (!user.isActive || user.isBanned)
     return sendError(res, 'Account suspended. Contact support.', 403);
-  }
 
   const isMatch = await user.matchPassword(password);
   if (!isMatch) return sendError(res, 'Invalid email or password', 401);
@@ -98,22 +101,24 @@ exports.refreshToken = asyncHandler(async (req, res) => {
   if (!token) return sendError(res, 'No refresh token', 401);
 
   const decoded = verifyToken(token, process.env.JWT_REFRESH_SECRET);
-  if (!decoded) return sendError(res, 'Invalid refresh token', 401);
+  if (!decoded)  return sendError(res, 'Invalid refresh token', 401);
 
   const user = await User.findById(decoded.id).select('+refreshTokens');
   if (!user) return sendError(res, 'User not found', 401);
 
   if (!user.refreshTokens.includes(token)) {
-    user.refreshTokens = [];
-    await user.save({ validateBeforeSave: false });
+    await User.findByIdAndUpdate(user._id, { refreshTokens: [] });
     clearRefreshCookie(res);
     return sendError(res, 'Token reuse detected. Please login again.', 401);
   }
 
-  user.refreshTokens = user.refreshTokens.filter((t) => t !== token);
-  const newRefresh   = generateRefreshToken(user._id);
-  user.refreshTokens.push(newRefresh);
-  await user.save({ validateBeforeSave: false });
+  const newRefresh = generateRefreshToken(user._id);
+  const updatedTokens = user.refreshTokens
+    .filter((t) => t !== token)
+    .concat(newRefresh)
+    .slice(-MAX_SESSIONS);
+
+  await User.findByIdAndUpdate(user._id, { refreshTokens: updatedTokens });
 
   setRefreshCookie(res, newRefresh);
   const accessToken = generateAccessToken(user._id, user.role);
@@ -125,7 +130,11 @@ exports.refreshToken = asyncHandler(async (req, res) => {
 exports.logout = asyncHandler(async (req, res) => {
   const token = req.cookies?.refreshToken;
   if (token) {
-    await User.findByIdAndUpdate(req.user._id, { $pull: { refreshTokens: token } });
+    // use token to find user — don't rely on req.user which may be undefined
+    const decoded = verifyToken(token, process.env.JWT_REFRESH_SECRET);
+    if (decoded?.id) {
+      await User.findByIdAndUpdate(decoded.id, { $pull: { refreshTokens: token } });
+    }
   }
   clearRefreshCookie(res);
   return sendSuccess(res, {}, 'Logged out successfully');
@@ -144,53 +153,14 @@ exports.getMe = asyncHandler(async (req, res) => {
   return sendSuccess(res, { user });
 });
 
-// ── POST /api/auth/forgot-password ───────────────────────────────────────────
+// ── POST /api/auth/forgot-password — email disabled, return instructions ──────
 exports.forgotPassword = asyncHandler(async (req, res) => {
-  const email = req.body.email.toLowerCase().trim();
-  const user  = await User.findOne({ email }).select('+otp');
-
-  if (!user || user.authProvider === 'google') {
-    return sendSuccess(res, {}, 'If that email exists, a reset OTP has been sent.');
-  }
-
-  const { sendOTPEmail } = require('../utils/emailUtils');
-  const otp = user.generateOTP();
-  await user.save({ validateBeforeSave: false });
-
-  try {
-    await sendOTPEmail(email, user.name, otp);
-  } catch (e) {
-    console.warn('⚠️  Email failed, reset OTP for', email, ':', otp);
-  }
-
-  return sendSuccess(res, {}, 'Password reset OTP sent to your email.');
+  return sendError(res, 'Password reset via email is currently disabled. Contact admin.', 503);
 });
 
-// ── POST /api/auth/reset-password ────────────────────────────────────────────
+// ── POST /api/auth/reset-password — disabled ──────────────────────────────────
 exports.resetPassword = asyncHandler(async (req, res) => {
-  const email = req.body.email.toLowerCase().trim();
-  const { otp, newPassword } = req.body;
-
-  const user = await User.findOne({ email }).select('+otp +password');
-  if (!user) return sendError(res, 'User not found', 404);
-
-  if (!user.otp?.code || new Date() > user.otp?.expiresAt) {
-    return sendError(res, 'OTP expired or not found. Request a new one.', 400);
-  }
-
-  if (user.otp.code !== otp.toString()) {
-    user.otp.attempts += 1;
-    await user.save({ validateBeforeSave: false });
-    return sendError(res, 'Invalid OTP', 400);
-  }
-
-  user.password      = newPassword;
-  user.refreshTokens = [];
-  user.clearOTP();
-  await user.save();
-
-  clearRefreshCookie(res);
-  return sendSuccess(res, {}, 'Password reset successful. Please login again.');
+  return sendError(res, 'Password reset is currently disabled.', 503);
 });
 
 // ── Google OAuth callback ─────────────────────────────────────────────────────
@@ -201,15 +171,32 @@ exports.googleCallback = asyncHandler(async (req, res) => {
   const accessToken  = generateAccessToken(user._id, user.role);
   const refreshToken = generateRefreshToken(user._id);
 
-  await User.findByIdAndUpdate(user._id, {
-    $push:     { refreshTokens: refreshToken },
-    lastLogin: new Date(),
+  await User.findByIdAndUpdate(user._id, [
+    { $set: {
+      refreshTokens: {
+        $slice: [{ $concatArrays: ['$refreshTokens', [refreshToken]] }, -MAX_SESSIONS]
+      },
+      lastLogin: new Date(),
+    }},
+  ]);
+
+  // Set refresh token in httpOnly cookie (same as regular login)
+  setRefreshCookie(res, refreshToken);
+
+  // Set access token in a short-lived non-httpOnly cookie so the frontend
+  // can read it once and store it in memory — never expose it in the URL
+  res.cookie('oauthAccessToken', accessToken, {
+    httpOnly: false,           // frontend JS must be able to read it
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge:   60 * 1000,       // 60 seconds — one-time handoff only
   });
 
-  setRefreshCookie(res, refreshToken);
-  res.redirect(`${process.env.CLIENT_URL}/oauth-success?token=${accessToken}&role=${user.role}`);
+  res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
 });
 
-// ── Stubs for OTP routes (kept so routes don't 404 if called) ────────────────
-exports.verifyOTP  = (req, res) => res.status(410).json({ success: false, message: 'OTP verification is disabled.' });
-exports.resendOTP  = (req, res) => res.status(410).json({ success: false, message: 'OTP verification is disabled.' });
+// ── OTP routes — disabled ─────────────────────────────────────────────────────
+exports.verifyOTP = (req, res) =>
+  res.status(410).json({ success: false, message: 'OTP verification is disabled.' });
+exports.resendOTP = (req, res) =>
+  res.status(410).json({ success: false, message: 'OTP verification is disabled.' });

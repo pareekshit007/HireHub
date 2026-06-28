@@ -1,4 +1,7 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+console.log('📋 ENV check → NODE_ENV:', process.env.NODE_ENV, '| JWT_ACCESS_SECRET:', process.env.JWT_ACCESS_SECRET ? '✅ loaded' : '❌ MISSING');
 
 const express      = require('express');
 const helmet       = require('helmet');
@@ -25,7 +28,12 @@ const app = express();
 
 app.use(helmet());
 
-const allowedOrigins = [process.env.CLIENT_URL, 'http://localhost:3000', 'http://localhost:3001'].filter(Boolean);
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'http://localhost:3001',
+].filter(Boolean);
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) callback(null, true);
@@ -38,11 +46,13 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'combined'));
+app.use(morgan('dev'));
 app.use(passport.initialize());
 app.use('/api', apiLimiter);
 
-app.get('/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV, version: '1.0.0' }));
+app.get('/health', (req, res) =>
+  res.json({ status: 'ok', env: process.env.NODE_ENV, version: '1.0.0' })
+);
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/users',         userRoutes);
@@ -52,10 +62,22 @@ app.use('/api/applications',  applicationRoutes);
 app.use('/api/saved-jobs',    savedJobRoutes);
 app.use('/api/admin',         adminRoutes);
 
-app.use((req, res) => res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` }));
+app.use((req, res) =>
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` })
+);
+
+// Raw error logger — prints actual error before errorHandler formats it
+app.use((err, req, res, next) => {
+  console.error('🔴 RAW ERROR:', err.message);
+  console.error(err.stack?.split('\n').slice(0, 3).join('\n'));
+  next(err);
+});
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 HireHub API running → http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 HireHub API running → http://localhost:${PORT}`)
+);
 
 module.exports = app;

@@ -1,6 +1,6 @@
 const express  = require('express');
 const router   = express.Router();
-const { SavedJob } = require('../models/SavedJob');
+const SavedJob = require('../models/SavedJob');
 const Job = require('../models/Job');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { sendSuccess, sendError, asyncHandler, getPagination, paginationMeta } = require('../utils/apiHelpers');

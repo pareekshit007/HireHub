@@ -1,7 +1,7 @@
 const Application  = require('../models/Application');
 const Job          = require('../models/Job');
 const User         = require('../models/User');
-const { Notification } = require('../models/SavedJob');
+const Notification = require('../models/Notification');
 const { handleResumeUpload } = require('../middleware/uploadMiddleware');
 const { sendApplicationConfirmation, sendNewApplicationAlert, sendStatusUpdateEmail } = require('../utils/emailUtils');
 const { sendSuccess, sendError, asyncHandler, getPagination, paginationMeta } = require('../utils/apiHelpers');
@@ -64,7 +64,9 @@ exports.withdrawApplication = asyncHandler(async (req, res) => {
   application.status = 'rejected';
   application.statusHistory.push({ status: 'rejected', note: 'Withdrawn by applicant' });
   await application.save();
-  await Job.findByIdAndUpdate(application.job, { $inc: { applicationCount: -1 } });
+  await Job.findByIdAndUpdate(application.job, [
+    { $set: { applicationCount: { $max: [0, { $subtract: ['$applicationCount', 1] }] } } },
+  ]);
   return sendSuccess(res, {}, 'Application withdrawn');
 });
 

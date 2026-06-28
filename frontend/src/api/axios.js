@@ -1,5 +1,12 @@
 import axios from 'axios'
 
+// ── In-memory token store (never touches localStorage) ────────────────────────
+let accessToken = null
+
+export const setAccessToken = (token) => { accessToken = token }
+export const getAccessToken = () => accessToken
+export const clearAccessToken = () => { accessToken = null }
+
 const api = axios.create({
   baseURL: '/api',
   withCredentials: true,
@@ -8,8 +15,7 @@ const api = axios.create({
 
 // ── Attach access token ───────────────────────────────────────────────────────
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
   return config
 })
 
@@ -27,7 +33,8 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config
 
-    if (error.response?.status === 401 && !original._retry) {
+    const isRefreshCall = original.url?.includes('/auth/refresh')
+    if (error.response?.status === 401 && !original._retry && !isRefreshCall) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -45,15 +52,17 @@ api.interceptors.response.use(
       try {
         const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
         const newToken = data.accessToken
-        localStorage.setItem('accessToken', newToken)
+        setAccessToken(newToken)
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`
         processQueue(null, newToken)
         original.headers.Authorization = `Bearer ${newToken}`
         return api(original)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        localStorage.removeItem('accessToken')
-        window.location.href = '/login'
+        clearAccessToken()
+        // Only redirect if not already on an auth page
+        const onAuthPage = ['/login', '/register'].some((p) => window.location.pathname.startsWith(p))
+        if (!onAuthPage) window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

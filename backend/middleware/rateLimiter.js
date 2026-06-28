@@ -7,6 +7,13 @@ const handler = (req, res) => {
   });
 };
 
+// In development, only skip rate limiting for requests from localhost
+const skipLocalhost = (req) => {
+  if (process.env.NODE_ENV !== 'development') return false;
+  const ip = req.ip || req.connection.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+};
+
 // General API limit
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
@@ -14,8 +21,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders:   false,
   handler,
-  // Bypasses the rate limiter entirely if NODE_ENV is set to development
-  skip: (req, res) => process.env.NODE_ENV === 'development',
+  skip: skipLocalhost,
 });
 
 // Strict limit for auth routes (login, register)
@@ -24,9 +30,8 @@ const authLimiter = rateLimit({
   max:      10,
   standardHeaders: true,
   legacyHeaders:   false,
-  message: 'Too many auth attempts. Please try again in 15 minutes.',
   handler,
-  skip: (req, res) => process.env.NODE_ENV === 'development',
+  skip: skipLocalhost,
 });
 
 // OTP send limit (prevent OTP spam)
@@ -35,7 +40,7 @@ const otpLimiter = rateLimit({
   max:      5,
   standardHeaders: true,
   legacyHeaders:   false,
-  skip: (req, res) => process.env.NODE_ENV === 'development',
+  skip: skipLocalhost,
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -51,7 +56,7 @@ const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders:   false,
   handler,
-  skip: (req, res) => process.env.NODE_ENV === 'development',
+  skip: skipLocalhost,
 });
 
 module.exports = { apiLimiter, authLimiter, otpLimiter, uploadLimiter };

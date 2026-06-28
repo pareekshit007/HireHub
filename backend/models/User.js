@@ -134,7 +134,7 @@ const userSchema = new mongoose.Schema(
 
 // ── Indexes ───────────────────────────────────────────────────────────────────
 userSchema.index({ role: 1 });
-userSchema.index({ 'otp.expiresAt': 1 }, { expireAfterSeconds: 0 }); // TTL on OTP
+// OTP TTL index removed — OTP feature is currently disabled
 
 // ── Hash password before save ─────────────────────────────────────────────────
 userSchema.pre('save', async function (next) {

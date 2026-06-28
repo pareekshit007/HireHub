@@ -54,7 +54,7 @@ export default function Navbar() {
 
   const dashMap = {
     seeker:   '/dashboard',
-    employer: '/employer/jobs',
+    employer: '/employer/dashboard',
     admin:    '/admin/dashboard',
   }
 

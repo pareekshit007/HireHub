@@ -5,7 +5,7 @@ const router   = express.Router();
 
 const authController = require('../controllers/authController');
 const { protect }    = require('../middleware/authMiddleware');
-const { authLimiter, otpLimiter } = require('../middleware/rateLimiter');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 // ── Validation chains ─────────────────────────────────────────────────────────
 const registerValidation = [
@@ -23,22 +23,9 @@ const registerValidation = [
     .isIn(['seeker', 'employer']).withMessage('Invalid role'),
 ];
 
-const otpValidation = [
-  body('email').isEmail().toLowerCase(),
-  body('otp')
-    .isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
-    .isNumeric().withMessage('OTP must be numeric'),
-];
-
 const loginValidation = [
   body('email').isEmail().toLowerCase(),
   body('password').notEmpty().withMessage('Password is required'),
-];
-
-const resetPasswordValidation = [
-  body('email').isEmail().toLowerCase(),
-  body('otp').isLength({ min: 6, max: 6 }).isNumeric(),
-  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 ];
 
 // ── Validation error middleware ────────────────────────────────────────────────
@@ -46,8 +33,6 @@ const { validationResult } = require('express-validator');
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    console.log('❌ Validation errors:', JSON.stringify(errors.array()));
-    console.log('❌ Request body:', JSON.stringify(req.body));
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
@@ -57,17 +42,22 @@ const validate = (req, res, next) => {
   next();
 };
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-router.post('/register',          authLimiter, registerValidation,      validate, authController.register);
-router.post('/verify-otp',        otpLimiter,  otpValidation,           validate, authController.verifyOTP);
-router.post('/resend-otp',        otpLimiter,  [body('email').isEmail().toLowerCase()], validate, authController.resendOTP);
-router.post('/login',             authLimiter, loginValidation,         validate, authController.login);
-router.post('/refresh',           authController.refreshToken);
-router.post('/logout',            protect,     authController.logout);
-router.post('/logout-all',        protect,     authController.logoutAll);
-router.get( '/me',                protect,     authController.getMe);
-router.post('/forgot-password',   otpLimiter,  [body('email').isEmail().toLowerCase()], validate, authController.forgotPassword);
-router.post('/reset-password',    authLimiter, resetPasswordValidation, validate, authController.resetPassword);
+// ── Active routes ─────────────────────────────────────────────────────────────
+router.post('/register',   authLimiter, registerValidation, validate, authController.register);
+router.post('/login',      authLimiter, loginValidation,    validate, authController.login);
+router.post('/refresh',    authController.refreshToken);
+router.post('/logout',     protect, authController.logout);
+router.post('/logout-all', protect, authController.logoutAll);
+router.get( '/me',         protect, authController.getMe);
+
+// ── Disabled routes (email/OTP not configured yet) ────────────────────────────
+const disabled = (req, res) =>
+  res.status(503).json({ success: false, message: 'This feature is not available yet.' });
+
+router.post('/verify-otp',      disabled);
+router.post('/resend-otp',      disabled);
+router.post('/forgot-password', disabled);
+router.post('/reset-password',  disabled);
 
 // ── Google OAuth (only registered when real credentials are provided) ─────────
 if (

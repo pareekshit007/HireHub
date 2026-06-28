@@ -1,19 +1,43 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from '@/components/layout/Layout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
+
+// Auth
 import Login          from '@/pages/auth/LoginPage'
 import Register       from '@/pages/auth/RegisterPage'
 import OAuthSuccess   from '@/pages/auth/OAuthSuccess'
-import VerifyOTP      from '@/pages/auth/VerifyOTPPage'
-import ForgotPassword from '@/pages/auth/ForgotPasswordPage'
-import ResetPassword  from '@/pages/auth/ResetPasswordPage'
+// TODO: restore when email is configured
+// import VerifyOTP      from '@/pages/auth/VerifyOTPPage'
+// import ForgotPassword from '@/pages/auth/ForgotPasswordPage'
+// import ResetPassword  from '@/pages/auth/ResetPasswordPage'
+
+// Phase 1 — Public
+import HomePage  from '@/pages/Homepage'
+import JobsPage  from '@/pages/Jobspage'
+import JobDetail from '@/pages/Jobdetailpage'
+
+// Phase 2 — Seeker
+import SeekerDashboard    from '@/pages/seeker/DashboardPage'
+import SeekerApplications from '@/pages/seeker/ApplicationsPage'
+import SavedJobsPage      from '@/pages/seeker/SavedJobsPage'
+
+// Phase 3 — Employer
+import EmployerDashboardPage    from '@/pages/employer/EmployerDashboardPage'
+import MyJobsPage               from '@/pages/employer/MyJobsPage'
+import PostJobPage              from '@/pages/employer/PostJobPage'
+import EmployerApplicationsPage from '@/pages/employer/EmployerApplicationsPage'
+
+// Phase 4 — Admin
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
+import AdminUsersPage     from '@/pages/admin/AdminUsersPage'
+import AdminJobsPage      from '@/pages/admin/AdminJobsPage'
 
 const Soon = ({ label }) => (
   <div className="min-h-[60vh] flex items-center justify-center">
     <div className="text-center">
       <p className="text-4xl mb-3">🚧</p>
       <p className="text-lg font-semibold text-foreground">{label}</p>
-      <p className="text-sm text-muted-foreground mt-1">Coming in next phase</p>
+      <p className="text-sm text-muted-foreground mt-1">Coming soon</p>
     </div>
   </div>
 )
@@ -21,58 +45,59 @@ const Soon = ({ label }) => (
 export default function App() {
   return (
     <Routes>
-      {/* Public routes with layout */}
       <Route element={<Layout />}>
-        <Route path="/" element={<Soon label="Home Page — F3" />} />
-        <Route path="/jobs" element={<Soon label="Jobs Listing — F3" />} />
-        <Route path="/jobs/:id" element={<Soon label="Job Detail — F3" />} />
+        {/* Public */}
+        <Route path="/"         element={<HomePage />} />
+        <Route path="/jobs"     element={<JobsPage />} />
+        <Route path="/jobs/:id" element={<JobDetail />} />
+
         <Route path="/notifications" element={
-          <ProtectedRoute><Soon label="Notifications — F7" /></ProtectedRoute>
+          <ProtectedRoute><Soon label="Notifications" /></ProtectedRoute>
         } />
         <Route path="/profile" element={
-          <ProtectedRoute><Soon label="Profile — F4/F5" /></ProtectedRoute>
+          <ProtectedRoute><Soon label="Profile" /></ProtectedRoute>
         } />
         <Route path="/settings" element={
-          <ProtectedRoute><Soon label="Settings — F7" /></ProtectedRoute>
+          <ProtectedRoute><Soon label="Settings" /></ProtectedRoute>
         } />
 
-        {/* Seeker */}
+        {/* Seeker — Phase 2 */}
         <Route path="/dashboard" element={
-          <ProtectedRoute roles={['seeker']}><Soon label="Seeker Dashboard — F4" /></ProtectedRoute>
+          <ProtectedRoute roles={['seeker']}><SeekerDashboard /></ProtectedRoute>
         } />
         <Route path="/dashboard/applications" element={
-          <ProtectedRoute roles={['seeker']}><Soon label="My Applications — F4" /></ProtectedRoute>
+          <ProtectedRoute roles={['seeker']}><SeekerApplications /></ProtectedRoute>
         } />
         <Route path="/dashboard/saved" element={
-          <ProtectedRoute roles={['seeker']}><Soon label="Saved Jobs — F4" /></ProtectedRoute>
+          <ProtectedRoute roles={['seeker']}><SavedJobsPage /></ProtectedRoute>
         } />
 
-        {/* Employer */}
+        {/* Employer — Phase 3 */}
+        <Route path="/employer/dashboard" element={
+          <ProtectedRoute roles={['employer']}><EmployerDashboardPage /></ProtectedRoute>
+        } />
         <Route path="/employer/jobs" element={
-          <ProtectedRoute roles={['employer']}><Soon label="My Jobs — F5" /></ProtectedRoute>
+          <ProtectedRoute roles={['employer']}><MyJobsPage /></ProtectedRoute>
         } />
         <Route path="/employer/jobs/new" element={
-          <ProtectedRoute roles={['employer']}><Soon label="Post Job — F5" /></ProtectedRoute>
+          <ProtectedRoute roles={['employer']}><PostJobPage /></ProtectedRoute>
         } />
         <Route path="/employer/jobs/:id/edit" element={
-          <ProtectedRoute roles={['employer']}><Soon label="Edit Job — F5" /></ProtectedRoute>
+          <ProtectedRoute roles={['employer']}><PostJobPage /></ProtectedRoute>
         } />
         <Route path="/employer/applications" element={
-          <ProtectedRoute roles={['employer']}><Soon label="Applications — F5" /></ProtectedRoute>
-        } />
-        <Route path="/employer/applications/:id" element={
-          <ProtectedRoute roles={['employer']}><Soon label="Application Detail — F5" /></ProtectedRoute>
+          <ProtectedRoute roles={['employer']}><EmployerApplicationsPage /></ProtectedRoute>
         } />
 
-        {/* Admin */}
+        {/* Admin — Phase 4 */}
         <Route path="/admin/dashboard" element={
-          <ProtectedRoute roles={['admin']}><Soon label="Admin Dashboard — F6" /></ProtectedRoute>
+          <ProtectedRoute roles={['admin']}><AdminDashboardPage /></ProtectedRoute>
         } />
         <Route path="/admin/users" element={
-          <ProtectedRoute roles={['admin']}><Soon label="User Management — F6" /></ProtectedRoute>
+          <ProtectedRoute roles={['admin']}><AdminUsersPage /></ProtectedRoute>
         } />
         <Route path="/admin/jobs" element={
-          <ProtectedRoute roles={['admin']}><Soon label="Job Approval — F6" /></ProtectedRoute>
+          <ProtectedRoute roles={['admin']}><AdminJobsPage /></ProtectedRoute>
         } />
 
         {/* 404 */}
@@ -86,14 +111,15 @@ export default function App() {
         } />
       </Route>
 
-      {/* Auth routes — no layout */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* Auth — no layout */}
+      <Route path="/login"         element={<Login />} />
+      <Route path="/register"      element={<Register />} />
       <Route path="/oauth-success" element={<OAuthSuccess />} />
+      {/* TODO: restore when email is configured
       <Route path="/verify-otp"      element={<VerifyOTP />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password"  element={<ResetPassword />} />
-     
+      */}
     </Routes>
   )
 }
